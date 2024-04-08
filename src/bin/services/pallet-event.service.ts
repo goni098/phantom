@@ -34,13 +34,13 @@ export abstract class PalletEventService {
       throw new Error(`Missing amount or denom from Pallet listing: ${txHash}`);
     }
 
-    const nft_id = await CommonService.createNftIfNotExist(
+    const nftId = await CommonService.createNftIfNotExist(
       tokenAddress,
       tokenId
     );
 
     await NftRepository.createPalletNftListing({
-      nft_id,
+      nftId,
       txHash,
       palletListingResponse: palletListing,
       amount: Number(amount),
@@ -52,7 +52,7 @@ export abstract class PalletEventService {
       denom,
       sellerAddress: palletListing.owner,
       metadata: {},
-      nft_id,
+      nftId,
       price: Number(amount),
       txHash,
       createdDate: DateTime.fromSeconds(palletListing.auction.created_at),
@@ -96,7 +96,7 @@ export abstract class PalletEventService {
       denom: nft.Listing.denom,
       sellerAddress: nft.Listing.seller_address,
       metadata: {},
-      nft_id: nft.id,
+      nftId: nft.id,
       price: Number(nft.Listing.price),
       txHash,
       createdDate: DateTime.now(),

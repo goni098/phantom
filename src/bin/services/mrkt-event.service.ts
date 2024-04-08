@@ -35,7 +35,7 @@ export abstract class MrktEventService {
       throw new Error(`missing event attribute in start_sale: ${txHash}`);
     }
 
-    const nft_id = await CommonService.createNftIfNotExist(
+    const nftId = await CommonService.createNftIfNotExist(
       tokenAddress,
       tokenId
     );
@@ -47,7 +47,7 @@ export abstract class MrktEventService {
 
     if (sale) {
       await NftRepository.createMrktNftListing({
-        nft_id,
+        nftId,
         txHash,
         createdDate: date,
         sale
@@ -59,7 +59,7 @@ export abstract class MrktEventService {
       denom,
       sellerAddress: seller,
       metadata: {},
-      nft_id,
+      nftId,
       price: Number(initialPrice),
       txHash,
       createdDate: date
@@ -212,7 +212,7 @@ export abstract class MrktEventService {
       throw new Error(`missing event attribute in cancel_sale: ${txHash}`);
     }
 
-    const nft_id = await CommonService.createNftIfNotExist(
+    const nftId = await CommonService.createNftIfNotExist(
       tokenAddress,
       tokenId
     );
@@ -232,7 +232,7 @@ export abstract class MrktEventService {
       metadata: {},
       txHash,
       price: Number(price),
-      nft_id,
+      nftId,
       sellerAddress: seller,
       createdDate: date
     });
@@ -264,7 +264,7 @@ export abstract class MrktEventService {
 
     if (tokenId) {
       // make single nft offer
-      const nft_id = await CommonService.createNftIfNotExist(
+      const nftId = await CommonService.createNftIfNotExist(
         tokenAddress,
         tokenId
       );
@@ -278,7 +278,7 @@ export abstract class MrktEventService {
 
       if (nftOffer) {
         await NftRepository.createNftOffer({
-          nft_id,
+          nftId,
           createdDate: date,
           offer: nftOffer,
           txHash
@@ -288,7 +288,7 @@ export abstract class MrktEventService {
       await NftRepository.createNftActivity({
         denom,
         eventKind: "make_offer",
-        nft_id,
+        nftId,
         metadata: {},
         price: Number(price),
         txHash,
@@ -340,7 +340,7 @@ export abstract class MrktEventService {
     }
 
     if (tokenId) {
-      const nft_id = await CommonService.createNftIfNotExist(
+      const nftId = await CommonService.createNftIfNotExist(
         tokenAddress,
         tokenId
       );
@@ -365,7 +365,7 @@ export abstract class MrktEventService {
         denom,
         eventKind: "cancel_offer",
         metadata: {},
-        nft_id,
+        nftId,
         price: Number(price),
         txHash,
         buyerAddress: buyer,

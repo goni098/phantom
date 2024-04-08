@@ -15,7 +15,7 @@ type CreateActivityTransactionAndPointOnSaleParams = {
   denom: string;
   price: string;
   txHash: string;
-  nftId: number;
+  nftId: string;
   date: DateTime;
   seller: string;
   buyer: string;
@@ -137,7 +137,7 @@ export abstract class CommonService {
         buyerAddress: buyer,
         sellerAddress: seller,
         metadata: metadata || {},
-        nft_id: nftId,
+        nftId,
         price: Number(price),
         txHash,
         createdDate: date,
