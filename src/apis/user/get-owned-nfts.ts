@@ -3,6 +3,7 @@ import type { Static } from "elysia";
 import Elysia, { t } from "elysia";
 
 import { pagedModel } from "@root/shared/model";
+import { UserRepository } from "@root/repositories/user.repository";
 
 const query = t.Composite([
   t.Object({

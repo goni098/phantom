@@ -4,6 +4,7 @@ import type {
   NftActivityKind,
   Prisma
 } from "@prisma/client";
+import type { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { DateTime } from "luxon";
 
 import type { GetActivitiesByUserQuery } from "@root/apis/user/get-activities";
@@ -37,14 +38,14 @@ type CreateNftParams = {
 };
 
 type CreateMrktNftListingParams = {
-  nftId: string;
+  nft_id: number;
   txHash: string;
   createdDate: DateTime;
   sale: Sale;
 };
 
 type CreatePalletNftListingParams = {
-  nftId: string;
+  nft_id: number;
   txHash: string;
   palletListingResponse: PalletListingResponse;
   denom: string;
@@ -52,7 +53,7 @@ type CreatePalletNftListingParams = {
 };
 
 type CreateNftOfferParams = {
-  nftId: string; // id in database
+  nft_id: number; // id in database
   txHash: string;
   createdDate: DateTime;
   offer: NftOffer;
@@ -64,7 +65,7 @@ type CreateNftActivityParams = {
   denom: string;
   eventKind: NftActivityKind;
   metadata: Prisma.InputJsonValue;
-  nftId: string;
+  nft_id: number;
   createdDate: DateTime;
   sellerAddress?: string;
   buyerAddress?: string;
@@ -105,12 +106,12 @@ type DeleteListingIfExistParams = {
 };
 
 export abstract class NftRepository {
-  public static findByAddressAndTokenId({
+  public static async findByAddressAndTokenId({
     tokenAddress,
     tokenId,
     withListing = false
   }: FindNftByTokenAddressAndTokenIdParams) {
-    return prisma.nft.findUnique({
+    const nft = await prisma.nft.findUnique({
       where: {
         token_address_token_id: {
           token_address: tokenAddress,
@@ -121,9 +122,11 @@ export abstract class NftRepository {
         Listing: withListing
       }
     });
+
+    return nft;
   }
 
-  public static createNft({
+  public static async createNft({
     collection,
     image,
     name,
@@ -133,30 +136,58 @@ export abstract class NftRepository {
     tokenUri,
     ownerAddress
   }: CreateNftParams) {
-    return prisma.nft.create({
-      data: {
-        name,
-        token_address: collection.address,
-        token_id: tokenId,
-        token_uri: tokenUri,
-        description,
-        image,
-        owner_address: ownerAddress,
-        Traits: {
-          createMany: {
-            data: traits.map(({ trait_type, value, display_type, type }) => ({
-              attribute: trait_type || type || "unknown",
-              value: value?.toString() || "unknown",
-              display_type
-            }))
+    try {
+      const nft = await prisma.nft.create({
+        data: {
+          name,
+          token_address: collection.address,
+          token_id: tokenId,
+          token_uri: tokenUri,
+          description,
+          image,
+          owner_address: ownerAddress,
+          Traits: {
+            createMany: {
+              data: traits.map(({ trait_type, value, display_type, type }) => ({
+                attribute: trait_type || type || "unknown",
+                value: value?.toString() || "unknown",
+                display_type
+              }))
+            }
           }
         }
+      });
+
+      return nft;
+    } catch (error) {
+      // sometime this method runs at the same time from different streams it will throw unique constraint error
+      // upsert Prisma method use select and insert under the hood not insert on conflict instead
+      // so it dose not resolve this problem
+
+      // this unique constraint error's code
+      if ((error as PrismaClientKnownRequestError).code !== "P2002") {
+        throw error;
       }
-    });
+
+      const nft = await prisma.nft.findUnique({
+        where: {
+          token_address_token_id: {
+            token_address: collection.address,
+            token_id: tokenId
+          }
+        }
+      });
+
+      if (!nft) {
+        throw new Error("unexpected nft not found from P2002 error");
+      }
+
+      return nft;
+    }
   }
 
   public static createMrktNftListing({
-    nftId,
+    nft_id,
     txHash,
     createdDate,
     sale
@@ -170,8 +201,8 @@ export abstract class NftRepository {
       endDate = DateTime.fromSeconds(end);
     }
 
-    return prisma.listingNft.create({
-      data: {
+    return prisma.listingNft.upsert({
+      create: {
         denom: sale.denom.native,
         sale_type: sale.sale_type === "Fixed" ? "fixed" : "auction",
         tx_hash: txHash,
@@ -184,15 +215,30 @@ export abstract class NftRepository {
         seller_address: sale.provider,
         Nft: {
           connect: {
-            id: nftId
+            id: nft_id
           }
         }
+      },
+      update: {
+        denom: sale.denom.native,
+        sale_type: sale.sale_type === "Fixed" ? "fixed" : "auction",
+        tx_hash: txHash,
+        created_date: createdDate.toJSDate(),
+        end_date: endDate?.toJSDate(),
+        start_date: startDate?.toJSDate(),
+        min_bid_increment_percent: sale.min_bid_increment_percent,
+        price: Number(sale.initial_price),
+        collection_address: sale.cw721_address,
+        seller_address: sale.provider
+      },
+      where: {
+        nft_id
       }
     });
   }
 
   public static createPalletNftListing({
-    nftId,
+    nft_id,
     palletListingResponse,
     txHash,
     amount,
@@ -204,8 +250,8 @@ export abstract class NftRepository {
       return;
     }
 
-    return prisma.listingNft.create({
-      data: {
+    return prisma.listingNft.upsert({
+      create: {
         market: "pallet",
         denom,
         sale_type: "fixed",
@@ -217,15 +263,34 @@ export abstract class NftRepository {
         seller_address: palletListingResponse.owner,
         Nft: {
           connect: {
-            id: nftId
+            id: nft_id
           }
         }
+      },
+      update: {
+        market: "pallet",
+        denom,
+        sale_type: "fixed",
+        created_date: DateTime.fromSeconds(palletListing.created_at).toJSDate(),
+        expiration_time: palletListing.expiration_time,
+        price: Number(amount),
+        collection_address: palletListingResponse.nft_address,
+        seller_address: palletListingResponse.owner,
+        Nft: {
+          connect: {
+            id: nft_id
+          }
+        }
+      },
+      where: {
+        nft_id,
+        market: "pallet"
       }
     });
   }
 
   public static createNftOffer({
-    nftId,
+    nft_id,
     txHash,
     createdDate,
     offer
@@ -233,9 +298,25 @@ export abstract class NftRepository {
     const startDate = DateTime.fromSeconds(offer.duration.start);
     const endDate = DateTime.fromSeconds(offer.duration.end);
 
-    return prisma.nftOffer.create({
-      data: {
-        nftId,
+    return prisma.nftOffer.upsert({
+      create: {
+        nft_id,
+        tx_hash: txHash,
+        denom: offer.denom.native,
+        price: Number(offer.price),
+        buyer_address: offer.buyer,
+        end_date: endDate.toJSDate(),
+        start_date: startDate.toJSDate(),
+        created_date: createdDate.toJSDate()
+      },
+      where: {
+        nft_id_buyer_address_price: {
+          nft_id,
+          buyer_address: offer.buyer,
+          price: Number(offer.price)
+        }
+      },
+      update: {
         tx_hash: txHash,
         denom: offer.denom.native,
         price: Number(offer.price),
@@ -270,7 +351,7 @@ export abstract class NftRepository {
     metadata,
     price,
     eventKind,
-    nftId,
+    nft_id,
     txHash,
     sellerAddress,
     buyerAddress,
@@ -290,7 +371,7 @@ export abstract class NftRepository {
         market: marketplace,
         Nft: {
           connect: {
-            id: nftId
+            id: nft_id
           }
         }
       }
