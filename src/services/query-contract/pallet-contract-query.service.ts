@@ -1,5 +1,3 @@
-import { CosmWasmClient } from "@cosmjs/cosmwasm-stargate";
-
 import { PALLET_CONTRACT_ADDRESS } from "@root/shared/config";
 import { cosmosClient } from "@root/shared/cosmos";
 

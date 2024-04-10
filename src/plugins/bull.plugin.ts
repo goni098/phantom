@@ -11,7 +11,7 @@ type Queues = Readonly<{
 type QueueConfig<Q extends keyof Queues> = {
   name: Q;
   job: Queues[Q][number];
-  consumer: (args: Queue.Job<NonNullable<unknown>>) => Promise<void>;
+  consumer?: (args: Queue.Job<NonNullable<unknown>>) => Promise<void>;
   opts?: Queue.QueueOptions;
 };
 
@@ -23,14 +23,16 @@ export const bullPlugin = <T extends keyof Queues>({
 }: QueueConfig<T>) => {
   const queue = new Queue(name, opts);
 
-  queue.process(job, async (job, done) => {
-    try {
-      await consumer(job);
-      done();
-    } catch (error) {
-      done(intoError(error));
-    }
-  });
+  if (consumer) {
+    queue.process(job, async (job, done) => {
+      try {
+        await consumer(job);
+        done();
+      } catch (error) {
+        done(intoError(error));
+      }
+    });
+  }
 
   return new Elysia({
     name: "Plugin.Queue",
