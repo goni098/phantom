@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import type { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { DateTime } from "luxon";
 
 import type { GetActivitiesByCollectionQuery } from "@root/apis/collection/get-activities";
@@ -42,7 +43,7 @@ type DeleteCollectionOfferIfExistParams = {
 };
 
 export abstract class CollectionRepository {
-  public static create({
+  public static async create({
     address,
     name,
     symbol,
@@ -53,19 +54,28 @@ export abstract class CollectionRepository {
     supply,
     socials
   }: CreateCollectionParams) {
-    return prisma.collection.create({
-      data: {
-        address,
-        name,
-        symbol,
-        description,
-        banner,
-        image,
-        royalty,
-        supply,
-        socials
+    try {
+      await prisma.collection.create({
+        data: {
+          address,
+          name,
+          symbol,
+          description,
+          banner,
+          image,
+          royalty,
+          supply,
+          socials
+        }
+      });
+    } catch (error) {
+      // this unique constraint error's code
+      if ((error as PrismaClientKnownRequestError).code !== "P2002") {
+        throw error;
       }
-    });
+
+      return;
+    }
   }
 
   public static findByAddress(address: string) {
@@ -322,7 +332,7 @@ export abstract class CollectionRepository {
           }
         });
 
-        const value = totalOwned * collection.floor_price;
+        const value = totalOwned * collection.floor_price.toNumber();
 
         return {
           ...collection,
@@ -420,7 +430,7 @@ export abstract class CollectionRepository {
           }
         });
 
-        const value = totalOwned * collection.floor_price;
+        const value = totalOwned * collection.floor_price.toNumber();
 
         return value;
       })
@@ -494,8 +504,8 @@ export abstract class CollectionRepository {
           take: 1
         });
 
-        const floorAt24hAgo = snapshotAt24hAgo?.floor || 0;
-        const _24hVolAt24hAgo = snapshotAt24hAgo?.volume_of_24h || 0;
+        const floorAt24hAgo = snapshotAt24hAgo?.floor.toNumber() || 0;
+        const _24hVolAt24hAgo = snapshotAt24hAgo?.volume_of_24h.toNumber() || 0;
 
         const c24h_volume_change =
           floorAt24hAgo === 0

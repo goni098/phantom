@@ -52,33 +52,37 @@ export abstract class UserPointRepository {
     page,
     take
   }: GetLeaderBoardByDateParams) {
-    // const totalRaw = await prisma.$runCommandRaw`
-    //     SELECT count(*) FROM (
-    //         SELECT DISTINCT wallet_address FROM public static.user_loyalty_point "u"
-    //         WHERE "u"."date" >= ${from.toJSDate()} AND "u"."date" < ${end.toJSDate()} AND "u"."point" > 0
-    //   ) AS temp;
-    // `;
-    // const loyalty_point = await prisma.$queryRaw<RawLeaderboard>`
-    //     SELECT
-    //         "u"."wallet_address",
-    //         sum("u"."point") "point",
-    //         rank() OVER (ORDER BY sum("u"."point") DESC)
-    //     FROM "public static"."user_loyalty_point" "u"
-    //     WHERE "u"."date" >= ${from.toJSDate()} AND "u"."date" < ${end.toJSDate()}
-    //       AND "u"."point" > 0
-    //       AND "u"."kind" != 'xp'
-    //     GROUP BY wallet_address
-    //     ORDER BY sum("u"."point") DESC
-    //     LIMIT ${take}
-    //     OFFSET ${(page - 1) * take}
-    // `;
-    // const leaderboard = loyalty_point.map(user => ({
-    //   wallet_address: user.wallet_address,
-    //   point: Number(user.point.toString()),
-    //   rank: Number(user.rank.toString())
-    // }));
-    // const total = Number(totalRaw?.[0].count.toString()) || 0;
-    // return { leaderboard, total };
+    const totalRaw = await prisma.$queryRaw<[{ count: bigint }]>`
+        SELECT count(*) FROM (
+            SELECT DISTINCT wallet_address FROM public static.user_loyalty_point "u"
+            WHERE "u"."date" >= ${from.toJSDate()} AND "u"."date" < ${end.toJSDate()} AND "u"."point" > 0
+      ) AS temp;
+    `;
+
+    const loyalty_point = await prisma.$queryRaw<RawLeaderboard>`
+        SELECT 
+            "u"."wallet_address",
+            sum("u"."point") "point",
+            rank() OVER (ORDER BY sum("u"."point") DESC)
+        FROM "public static"."user_loyalty_point" "u"
+        WHERE "u"."date" >= ${from.toJSDate()} AND "u"."date" < ${end.toJSDate()} 
+          AND "u"."point" > 0 
+          AND "u"."kind" != 'xp'
+        GROUP BY wallet_address
+        ORDER BY sum("u"."point") DESC
+        LIMIT ${take}
+        OFFSET ${(page - 1) * take}
+    `;
+
+    const leaderboard = loyalty_point.map(user => ({
+      wallet_address: user.wallet_address,
+      point: Number(user.point.toString()),
+      rank: Number(user.rank.toString())
+    }));
+
+    const total = Number(totalRaw?.[0].count.toString()) || 0;
+
+    return { leaderboard, total };
   }
 
   public static async getUserOnLeaderBoard({
@@ -86,39 +90,43 @@ export abstract class UserPointRepository {
     from,
     wallet_address
   }: GetUserLeaderBoardByDateParams) {
-    // const totalRaw = await prisma.$queryRaw<[{ count: bigint }]>`
-    //     SELECT count(*) FROM (
-    //         SELECT DISTINCT wallet_address FROM public static.user_loyalty_point "u"
-    //         WHERE "u"."date" >= ${from.toJSDate()} AND "u"."date" < ${end.toJSDate()} AND "u"."point" > 0
-    //   ) AS temp;`;
-    // const raw = await prisma.$queryRaw<RawLeaderboard>`
-    //     SELECT * FROM(
-    //         SELECT
-    //             "u"."wallet_address",
-    //             sum("u"."point") "point",
-    //             rank() OVER (ORDER BY sum("u"."point") DESC)
-    //         FROM "public static"."user_loyalty_point" "u"
-    //         WHERE "u"."date" >= ${from.toJSDate()} AND "u"."date" < ${end.toJSDate()} AND "u"."point" > 0 AND "u"."kind" != 'xp'
-    //         GROUP BY wallet_address
-    //     ) tmp
-    //     WHERE wallet_address = ${wallet_address}
-    // `;
-    // if (raw.length) {
-    //   const user = raw[0];
-    //   return {
-    //     rank: {
-    //       wallet_address: user.wallet_address,
-    //       point: Number(user.point.toString()),
-    //       rank: Number(user.rank.toString())
-    //     }
-    //   };
-    // }
-    // return {
-    //   rank: {
-    //     wallet_address,
-    //     point: 0,
-    //     rank: 1 + Number(totalRaw?.[0].count.toString()) || 0
-    //   }
-    // };
+    const totalRaw = await prisma.$queryRaw<[{ count: bigint }]>`
+        SELECT count(*) FROM (
+            SELECT DISTINCT wallet_address FROM public static.user_loyalty_point "u"
+            WHERE "u"."date" >= ${from.toJSDate()} AND "u"."date" < ${end.toJSDate()} AND "u"."point" > 0
+      ) AS temp;`;
+
+    const raw = await prisma.$queryRaw<RawLeaderboard>`
+        SELECT * FROM(
+            SELECT 
+                "u"."wallet_address",
+                sum("u"."point") "point",
+                rank() OVER (ORDER BY sum("u"."point") DESC)
+            FROM "public static"."user_loyalty_point" "u"
+            WHERE "u"."date" >= ${from.toJSDate()} AND "u"."date" < ${end.toJSDate()} AND "u"."point" > 0 AND "u"."kind" != 'xp'
+            GROUP BY wallet_address
+        ) tmp     
+        WHERE wallet_address = ${wallet_address}
+    `;
+
+    if (raw.length) {
+      const user = raw[0];
+
+      return {
+        rank: {
+          wallet_address: user.wallet_address,
+          point: Number(user.point.toString()),
+          rank: Number(user.rank.toString())
+        }
+      };
+    }
+
+    return {
+      rank: {
+        wallet_address,
+        point: 0,
+        rank: 1 + Number(totalRaw?.[0].count.toString()) || 0
+      }
+    };
   }
 }
