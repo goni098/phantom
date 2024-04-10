@@ -3,6 +3,10 @@ import type { Static } from "elysia";
 import Elysia, { t } from "elysia";
 
 import { pagedModel } from "@root/shared/model";
+import { UserRepository } from "@root/repositories/user.repository";
+import { MRKT_CONTRACT_ADDRESS, X } from "@root/shared/config";
+
+console.log("MRKT: ", X);
 
 const query = t.Composite([
   t.Object({
@@ -26,7 +30,7 @@ export const getOwnedNfs = new Elysia({
 }).get(
   "",
   () => {
-    // return UserRepository.findAll();
+    return UserRepository.findAll();
   },
   { query }
 );

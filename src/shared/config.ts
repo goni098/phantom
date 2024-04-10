@@ -7,3 +7,9 @@ export const PALLET_CONTRACT_ADDRESS = readConfigOrDie(
   "PALLET_CONTRACT_ADDRESS"
 );
 export const PALLET_API_URL = readConfigOrDie("PALLET_API_URL");
+
+export const X = (() => {
+  console.log("func x");
+
+  return "x";
+})();

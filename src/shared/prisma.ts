@@ -1,14 +1,12 @@
 import type { Prisma } from "@prisma/client";
 import { PrismaClient } from "@prisma/client";
 
-console.log("set up prisma");
-
 const logFeatureFlag = process.env.LOG_QUERY;
 
-const log: Prisma.LogLevel[] = ["error", "warn"];
+const log: Prisma.LogLevel[] = ["error", "warn", "info"];
 
 if (logFeatureFlag) {
-  log.push("query", "info");
+  log.push("query");
 }
 
 const prismaClient = new PrismaClient<Prisma.PrismaClientOptions, "query">({
@@ -21,5 +19,9 @@ if (logFeatureFlag) {
     console.log("Params: " + e.params);
   });
 }
+
+await prismaClient.$connect();
+
+console.log("set up prisma");
 
 export const prisma = prismaClient;

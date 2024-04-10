@@ -4,21 +4,20 @@ import Elysia from "elysia";
 import { toBase64 } from "@root/utils/base64";
 import { isNill } from "@root/utils/is-nill";
 
-const memory = () =>
-  caching("memory", {
+export const cachePlugin = new Elysia({
+  name: "Plugin.Cache"
+}).decorate(
+  "memory",
+  await caching("memory", {
     max: 100,
     ttl: 10 * 1000 /*milliseconds*/
-  });
-
-export const cachePlugin = async () =>
-  new Elysia({
-    name: "Plugin.Cache"
-  }).decorate("memory", await memory());
+  })
+);
 
 export const autoCachingPlugin = new Elysia({
   name: "Plugin.AutoCaching"
 })
-  .use(cachePlugin())
+  .use(cachePlugin)
   .onRequest(async ({ memory, request }) => {
     const key = toBase64(request.url);
 
